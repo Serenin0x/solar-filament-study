@@ -1,0 +1,8 @@
+# Recorded training dependencies. torch==2.10.0 also accepts the recorded +cu128 build.
+torch==2.10.0
+numpy==2.0.2
+Pillow==11.3.0
+pycocotools==2.0.11
+scipy==1.16.3
+# Required for figures; the original plotting version was not recorded.
+matplotlib
