@@ -1,6 +1,6 @@
 # Solar Filament Instance Segmentation
 
-This CS 1675 project studies how to recover individual solar filaments in full-disk H-alpha images. Several dark structures that annotators traced were missed by our original U-Net. We are testing whether an input adjustment that emphasizes faint dark lines helps the network find them, and whether it helps to train on more than one annotation of the same observation. The code in [baseline.py](baseline.py) implements all five configurations in our current study. The scores and figures published below document our earlier raw-image baseline.
+This CS 1675 project studies how to recover individual solar filaments in full-disk H-alpha images. Several dark structures that annotators traced were missed by our original U-Net. We tested whether an input adjustment that emphasizes faint dark lines helped the network find them, and whether it helped to train on more than one annotation of the same observation. The code in [baseline.py](baseline.py) implements all five configurations in our current study. The results below compare five models trained on the same 500 images and evaluated on the same 102 observations.
 
 ## Images and annotations
 
@@ -22,26 +22,37 @@ With `--labels first`, an image's target is the foreground union of its first re
 
 Comparing v1.2-line with v1.1-dark isolates the fixed direction weighting under first-record supervision. Comparing v1.2-vote with v1.0-base, or v1.2-both with v1.2-line, isolates the training target for a fixed input. All arms use eight epochs, batch size 2, AdamW with learning rate 0.001, and BCE-with-logits plus soft Dice loss. We validate every two epochs and select the best checkpoint by local validation PQ, breaking ties with Dice. Each prediction is compared with each record independently, and scores are averaged first over records for an image, then over images. Instance diagnostics also report recall, precision and false positives for strict IoU > 0.50 and exploratory IoU ≥ 0.10. The five-arm comparison uses only the 102 validation images.
 
-## Historical baseline results
+## Validation results
 
-These are local scores from the earlier raw-image, first-record U-Net. Epoch 6 gave the best validation PQ in that eight-epoch run. The 105 internal-test observations were held out from training and checkpoint selection. Results from the current five-arm study will be reported separately after verification.
+All five configurations completed eight training epochs. Each row uses its own validation-selected checkpoint and the same threshold of 0.5. Recall uses one-to-one instance matches with IoU greater than 0.50. The validation set contains 102 images, 159 annotation records and 1,161 marked instances across those records.
 
-| Original split | Images | Local PQ | Mask Dice | Mask IoU |
-| --- | ---: | ---: | ---: | ---: |
-| Validation | 102 | 0.0743 | 0.3062 | 0.1945 |
-| Internal test | 105 | 0.0591 | 0.3183 | 0.2051 |
+| Input and training target | Selected epoch | Local PQ ↑ | Mask Dice ↑ | Mask IoU ↑ | Strict recall ↑ | False positives per image ↓ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Raw image, first record | 8 | 0.1000 | 0.5280 | 0.3724 | 30.40% | 18.73 |
+| Local darkening, first record | 8 | 0.0867 | 0.4733 | 0.3265 | 20.76% | 12.42 |
+| Directional darkening, first record | 8 | 0.1084 | 0.5265 | 0.3724 | 30.92% | 16.36 |
+| **Raw image, consensus** | 8 | **0.1287** | 0.5204 | 0.3682 | 31.87% | 12.73 |
+| Directional darkening, consensus | 8 | 0.1191 | 0.5111 | 0.3606 | 28.17% | 12.92 |
 
-![Original baseline training loss and validation scores, with the selected epoch marked](results/training.png)
+**Raw image, consensus** achieved the highest local PQ, 0.1287 versus 0.1000 for the raw-image control. At the same operating point it matched 370 annotated instances versus 353 and produced 12.73 false positives per image versus 18.73. Across the individual annotation records, the two models shared 307 matches. The selected model gained 63 and lost 46.
 
-![Three original baseline validation observations with human filament annotations and saved-model predictions](results/predictions.png)
+![Five model predictions compared with human outlines on three matching validation crops](results/predictions.png)
 
-These evenly spaced examples were chosen from the sorted validation filenames before inspecting prediction quality. The third observation has seven annotated filaments and no predicted components. The displayed scores use the individual annotation record shown. Instance colors are local to each panel. Our image-mean PQ differs from pooled scoring; annotation disagreement and possible near-duplicate observations across months remain sources of uncertainty.
+Each row shows the same region across models. The observations are the first, middle and last filenames in the sorted validation set. Each crop is centered on the largest filament in the first annotation record. Instance colors distinguish regions within each panel.
+
+![Grayscale inputs after learned local and directional enhancement on the same three crops](results/input.png)
+
+These input comparisons use the learned gain from each saved checkpoint and a common grayscale range. We plan to examine missed and fragmented filaments and evaluate the selected model on the 105 held-out observations.
+
+### Earlier baseline
+
+The original raw-image baseline selected epoch 6. Its validation PQ, Dice and IoU were 0.0743, 0.3062 and 0.1945. On the 105 held-out images it scored 0.0591, 0.3183 and 0.2051. [Archived baseline results and figures](https://github.com/Serenin0x/solar-filament-study/tree/b9adfd73d5d9c28fb52e11ac37414f60bde2cc72)
 
 ## Running the code
 
-The current study runs on one RTX 5090 with PyTorch 2.8.0+cu128, NumPy 2.3.2, Pillow 11.3.0, pycocotools 2.0.11, SciPy 1.16.3 and Matplotlib 3.10.5. On a compatible Linux CUDA machine, the commands below install the recorded environment and check the three model inputs. Full training uses one NVIDIA GPU. The smoke checks, saved-checkpoint evaluation and visualization can also run on CPU. [PyTorch installation options](https://pytorch.org/get-started/previous-versions/)
+The current study ran on one RTX 5090 with PyTorch 2.8.0+cu128, NumPy 2.3.2, Pillow 11.3.0, pycocotools 2.0.11, SciPy 1.16.3 and Matplotlib 3.10.5. On a compatible Linux CUDA machine, the commands below install the recorded environment and check the three model inputs. Full training uses one NVIDIA GPU. The smoke checks, saved-checkpoint evaluation and visualization can also run on CPU. [PyTorch installation options](https://pytorch.org/get-started/previous-versions/)
 
-The earlier baseline figures and scores were produced in an environment with PyTorch 2.10.0+cu128 and NumPy 2.0.2. Pillow, pycocotools and SciPy had the same versions listed above. The original Matplotlib version was not recorded. Reproductions on different hardware and software can yield different scores.
+The archived baseline figures and scores were produced in an environment with PyTorch 2.10.0+cu128 and NumPy 2.0.2. Pillow, pycocotools and SciPy had the same versions listed above. The original Matplotlib version was not recorded. Reproductions on different hardware and software can yield different scores.
 
 ```sh
 python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu128
@@ -76,3 +87,4 @@ Each run writes the split, training history, an epoch recovery checkpoint (`last
 ```sh
 python baseline.py visualize --data "$DATA" --out "$RUNS/v1.2-both"
 ```
+
